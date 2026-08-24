@@ -15,6 +15,7 @@ from app.models.beneficiary import Beneficiary
 from app.models.check_deposit import CheckDeposit
 from app.models.fraud_alert import FraudAlert
 from app.models.chat_message import ChatMessage
+from app.models.identity_document import IdentityDocument
 
 __all__ = [
     "User",
@@ -34,4 +35,5 @@ __all__ = [
     "CheckDeposit",
     "FraudAlert",
     "ChatMessage",
+    "IdentityDocument",
 ]

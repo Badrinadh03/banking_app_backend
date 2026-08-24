@@ -1,4 +1,5 @@
 from app.models.user import User
+from tests.conftest import SIGNUP_ID_FILES, signup_form
 
 
 def _mark_verified(db_session, email):
@@ -10,12 +11,8 @@ def _mark_verified(db_session, email):
 def test_signup_creates_user(client):
     response = client.post(
         "/auth/signup",
-        json={
-            "email": "alice@example.com",
-            "password": "secret123",
-            "full_name": "Alice",
-            "phone_number": "5555550101",
-        },
+        data=signup_form(email="alice@example.com", full_name="Alice", phone_number="5555550101"),
+        files=SIGNUP_ID_FILES,
     )
     assert response.status_code == 201
     body = response.json()
@@ -26,56 +23,40 @@ def test_signup_creates_user(client):
 
 
 def test_signup_duplicate_email_rejected(client):
-    payload = {
-        "email": "bob@example.com",
-        "password": "secret123",
-        "full_name": "Bob",
-        "phone_number": "5555550102",
-    }
-    client.post("/auth/signup", json=payload)
-    response = client.post("/auth/signup", json={**payload, "phone_number": "5555550103"})
+    payload = signup_form(email="bob@example.com", full_name="Bob", phone_number="5555550102")
+    client.post("/auth/signup", data=payload, files=SIGNUP_ID_FILES)
+    response = client.post(
+        "/auth/signup", data={**payload, "phone_number": "5555550103"}, files=SIGNUP_ID_FILES
+    )
     assert response.status_code == 400
 
 
 def test_signup_duplicate_phone_rejected(client):
     client.post(
         "/auth/signup",
-        json={
-            "email": "phoneowner@example.com",
-            "password": "secret123",
-            "full_name": "Owner",
-            "phone_number": "5555550104",
-        },
+        data=signup_form(email="phoneowner@example.com", full_name="Owner", phone_number="5555550104"),
+        files=SIGNUP_ID_FILES,
     )
     response = client.post(
         "/auth/signup",
-        json={
-            "email": "otherowner@example.com",
-            "password": "secret123",
-            "full_name": "Other",
-            "phone_number": "5555550104",
-        },
+        data=signup_form(email="otherowner@example.com", full_name="Other", phone_number="5555550104"),
+        files=SIGNUP_ID_FILES,
     )
     assert response.status_code == 400
 
 
 def test_signup_requires_phone_number(client):
-    response = client.post(
-        "/auth/signup",
-        json={"email": "nophone@example.com", "password": "secret123", "full_name": "No Phone"},
-    )
+    data = signup_form(email="nophone@example.com", full_name="No Phone")
+    del data["phone_number"]
+    response = client.post("/auth/signup", data=data, files=SIGNUP_ID_FILES)
     assert response.status_code == 422
 
 
 def test_login_returns_token(client, db_session):
     client.post(
         "/auth/signup",
-        json={
-            "email": "carol@example.com",
-            "password": "secret123",
-            "full_name": "Carol",
-            "phone_number": "5555550105",
-        },
+        data=signup_form(email="carol@example.com", full_name="Carol", phone_number="5555550105"),
+        files=SIGNUP_ID_FILES,
     )
     _mark_verified(db_session, "carol@example.com")
     response = client.post(
@@ -88,12 +69,8 @@ def test_login_returns_token(client, db_session):
 def test_login_with_phone_number_returns_token(client, db_session):
     client.post(
         "/auth/signup",
-        json={
-            "email": "erin@example.com",
-            "password": "secret123",
-            "full_name": "Erin",
-            "phone_number": "555-555-0106",
-        },
+        data=signup_form(email="erin@example.com", full_name="Erin", phone_number="555-555-0106"),
+        files=SIGNUP_ID_FILES,
     )
     _mark_verified(db_session, "erin@example.com")
     response = client.post(
@@ -106,12 +83,8 @@ def test_login_with_phone_number_returns_token(client, db_session):
 def test_login_wrong_password_rejected(client):
     client.post(
         "/auth/signup",
-        json={
-            "email": "dave@example.com",
-            "password": "secret123",
-            "full_name": "Dave",
-            "phone_number": "5555550107",
-        },
+        data=signup_form(email="dave@example.com", full_name="Dave", phone_number="5555550107"),
+        files=SIGNUP_ID_FILES,
     )
     response = client.post(
         "/auth/login", json={"identifier": "dave@example.com", "password": "wrongpass"}
@@ -127,12 +100,8 @@ def test_protected_route_requires_token(client):
 def test_email_otp_request_and_verify(client):
     client.post(
         "/auth/signup",
-        json={
-            "email": "otpemail@example.com",
-            "password": "secret123",
-            "full_name": "Otp Email",
-            "phone_number": "5555550108",
-        },
+        data=signup_form(email="otpemail@example.com", full_name="Otp Email", phone_number="5555550108"),
+        files=SIGNUP_ID_FILES,
     )
     request_response = client.post(
         "/auth/otp/request", json={"identifier": "otpemail@example.com", "channel": "email"}
@@ -159,12 +128,8 @@ def test_email_otp_request_and_verify(client):
 def test_phone_otp_request_and_verify(client):
     client.post(
         "/auth/signup",
-        json={
-            "email": "otpphone@example.com",
-            "password": "secret123",
-            "full_name": "Otp Phone",
-            "phone_number": "5555550109",
-        },
+        data=signup_form(email="otpphone@example.com", full_name="Otp Phone", phone_number="5555550109"),
+        files=SIGNUP_ID_FILES,
     )
     request_response = client.post(
         "/auth/otp/request", json={"identifier": "5555550109", "channel": "phone"}
@@ -186,12 +151,8 @@ def test_phone_otp_request_and_verify(client):
 def test_otp_verify_rejects_wrong_code(client):
     client.post(
         "/auth/signup",
-        json={
-            "email": "otpwrong@example.com",
-            "password": "secret123",
-            "full_name": "Otp Wrong",
-            "phone_number": "5555550110",
-        },
+        data=signup_form(email="otpwrong@example.com", full_name="Otp Wrong", phone_number="5555550110"),
+        files=SIGNUP_ID_FILES,
     )
     client.post(
         "/auth/otp/request", json={"identifier": "otpwrong@example.com", "channel": "email"}
@@ -206,12 +167,8 @@ def test_otp_verify_rejects_wrong_code(client):
 def test_otp_verify_locks_out_after_max_attempts(client):
     client.post(
         "/auth/signup",
-        json={
-            "email": "otplockout@example.com",
-            "password": "secret123",
-            "full_name": "Otp Lockout",
-            "phone_number": "5555550111",
-        },
+        data=signup_form(email="otplockout@example.com", full_name="Otp Lockout", phone_number="5555550111"),
+        files=SIGNUP_ID_FILES,
     )
     client.post(
         "/auth/otp/request", json={"identifier": "otplockout@example.com", "channel": "email"}
@@ -231,12 +188,8 @@ def test_otp_verify_locks_out_after_max_attempts(client):
 def test_password_login_rejected_before_verification(client):
     client.post(
         "/auth/signup",
-        json={
-            "email": "unverified1@example.com",
-            "password": "secret123",
-            "full_name": "Unverified",
-            "phone_number": "5555550113",
-        },
+        data=signup_form(email="unverified1@example.com", full_name="Unverified", phone_number="5555550113"),
+        files=SIGNUP_ID_FILES,
     )
     response = client.post(
         "/auth/login", json={"identifier": "unverified1@example.com", "password": "secret123"}
@@ -247,12 +200,8 @@ def test_password_login_rejected_before_verification(client):
 def test_verify_account_by_email_then_login_succeeds(client):
     client.post(
         "/auth/signup",
-        json={
-            "email": "verifyme@example.com",
-            "password": "secret123",
-            "full_name": "Verify Me",
-            "phone_number": "5555550114",
-        },
+        data=signup_form(email="verifyme@example.com", full_name="Verify Me", phone_number="5555550114"),
+        files=SIGNUP_ID_FILES,
     )
     otp_response = client.post(
         "/auth/otp/request", json={"identifier": "verifyme@example.com", "channel": "email"}
@@ -278,12 +227,8 @@ def test_verify_account_by_email_then_login_succeeds(client):
 def test_verify_account_by_phone_then_login_succeeds(client):
     client.post(
         "/auth/signup",
-        json={
-            "email": "verifyphone@example.com",
-            "password": "secret123",
-            "full_name": "Verify Phone",
-            "phone_number": "5555550115",
-        },
+        data=signup_form(email="verifyphone@example.com", full_name="Verify Phone", phone_number="5555550115"),
+        files=SIGNUP_ID_FILES,
     )
     otp_response = client.post(
         "/auth/otp/request", json={"identifier": "5555550115", "channel": "phone"}
@@ -305,12 +250,8 @@ def test_verify_account_by_phone_then_login_succeeds(client):
 def test_verify_account_wrong_code_rejected(client):
     client.post(
         "/auth/signup",
-        json={
-            "email": "verifywrong@example.com",
-            "password": "secret123",
-            "full_name": "Verify Wrong",
-            "phone_number": "5555550116",
-        },
+        data=signup_form(email="verifywrong@example.com", full_name="Verify Wrong", phone_number="5555550116"),
+        files=SIGNUP_ID_FILES,
     )
     client.post(
         "/auth/otp/request", json={"identifier": "verifywrong@example.com", "channel": "email"}
@@ -329,12 +270,8 @@ def test_otp_login_on_unverified_account_also_verifies_it(client, db_session):
     # call required.
     client.post(
         "/auth/signup",
-        json={
-            "email": "otpselfverify@example.com",
-            "password": "secret123",
-            "full_name": "Otp Self Verify",
-            "phone_number": "5555550117",
-        },
+        data=signup_form(email="otpselfverify@example.com", full_name="Otp Self Verify", phone_number="5555550117"),
+        files=SIGNUP_ID_FILES,
     )
     otp_response = client.post(
         "/auth/otp/request", json={"identifier": "otpselfverify@example.com", "channel": "email"}
@@ -429,12 +366,8 @@ def test_reset_password_rejects_weak_new_password(client, auth_headers):
 def test_otp_request_rate_limited_when_resent_too_soon(client):
     client.post(
         "/auth/signup",
-        json={
-            "email": "otpresend@example.com",
-            "password": "secret123",
-            "full_name": "Otp Resend",
-            "phone_number": "5555550112",
-        },
+        data=signup_form(email="otpresend@example.com", full_name="Otp Resend", phone_number="5555550112"),
+        files=SIGNUP_ID_FILES,
     )
     first = client.post(
         "/auth/otp/request", json={"identifier": "otpresend@example.com", "channel": "email"}

@@ -13,6 +13,30 @@ from fastapi.testclient import TestClient
 
 TEST_DATABASE_URL = "sqlite:///:memory:"
 
+# /auth/signup takes multipart/form-data (it accepts an ID image upload) —
+# these are the fixed parts every test needs, shared so tests only specify
+# the fields relevant to what they're actually testing.
+SIGNUP_ID_FILES = {
+    "id_front_image": ("id_front.jpg", b"fake-image-bytes", "image/jpeg"),
+    "id_back_image": ("id_back.jpg", b"fake-image-bytes", "image/jpeg"),
+}
+
+
+def signup_form(**overrides) -> dict:
+    data = {
+        "email": "signup@example.com",
+        "password": "secret123",
+        "full_name": "Test User",
+        "phone_number": "5555550000",
+        "date_of_birth": "1990-01-01",
+        "government_id_last4": "1234",
+        "address": "123 Test St, Testville, TS 00000",
+        "zip_code": "00000",
+        "document_type": "drivers_license",
+    }
+    data.update(overrides)
+    return data
+
 
 @pytest.fixture(autouse=True)
 def disable_real_email_sending(monkeypatch):
@@ -109,12 +133,8 @@ def auth_headers(client, db_session):
             phone_number = f"555555{next(phone_counter):04d}"
         client.post(
             "/auth/signup",
-            json={
-                "email": email,
-                "password": password,
-                "full_name": "Test User",
-                "phone_number": phone_number,
-            },
+            data=signup_form(email=email, password=password, phone_number=phone_number),
+            files=SIGNUP_ID_FILES,
         )
         # Bypass real OTP verification and give the user a complete profile
         # in tests, same spirit as disable_real_email_sending bypassing real

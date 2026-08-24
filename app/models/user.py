@@ -1,6 +1,7 @@
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, String, func
+from sqlalchemy import Boolean, DateTime, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -16,6 +17,9 @@ class User(Base):
     phone_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
     address: Mapped[str | None] = mapped_column(String(500), nullable=True)
     government_id_last4: Mapped[str | None] = mapped_column(String(4), nullable=True)
+    date_of_birth: Mapped[date | None] = mapped_column(nullable=True)
+    employer_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    annual_income: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     bill_pay_enrolled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     bill_pay_enrolled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     remember_device: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
@@ -57,4 +61,7 @@ class User(Base):
     )
     chat_messages = relationship(
         "ChatMessage", back_populates="user", cascade="all, delete-orphan"
+    )
+    identity_documents = relationship(
+        "IdentityDocument", back_populates="user", cascade="all, delete-orphan"
     )

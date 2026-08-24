@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user
 from app.database import get_db
+from app.exceptions import BadRequestError
 from app.models.user import User
 from app.schemas.user import (
     ChangeEmailRequest,
@@ -12,7 +13,7 @@ from app.schemas.user import (
     UserRead,
     UserUpdate,
 )
-from app.services import auth_service
+from app.services import auth_service, identity_document_service
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -63,3 +64,15 @@ def login_history(
     db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     return auth_service.get_login_history(db, current_user)
+
+
+@router.get("/me/identity-document/{side}")
+def get_identity_document_image(
+    side: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if side not in {"front", "back"}:
+        raise BadRequestError("side must be 'front' or 'back'")
+    content, content_type = identity_document_service.get_image(db, current_user, side)
+    return Response(content=content, media_type=content_type)

@@ -1,3 +1,6 @@
+from tests.conftest import SIGNUP_ID_FILES, signup_form
+
+
 def test_login_records_login_event(client, auth_headers):
     headers = auth_headers(email="loginhist@example.com")
 
@@ -69,40 +72,32 @@ def test_update_settings_toggles_remember_device(client, auth_headers):
 def test_signup_rejects_weak_password_too_short(client):
     response = client.post(
         "/auth/signup",
-        json={
-            "email": "weak1@example.com",
-            "password": "abc123",
-            "full_name": "Weak",
-            "phone_number": "5555550001",
-        },
+        data=signup_form(email="weak1@example.com", password="abc123", full_name="Weak", phone_number="5555550001"),
+        files=SIGNUP_ID_FILES,
     )
-    assert response.status_code == 422
+    # Unlike the old JSON-body signup, invalid Form() fields are validated
+    # manually inside the route (multipart requests can't be bound straight
+    # to a pydantic model), so failures surface as a 400 BadRequestError
+    # rather than FastAPI's automatic 422.
+    assert response.status_code == 400
 
 
 def test_signup_rejects_password_without_digit(client):
     response = client.post(
         "/auth/signup",
-        json={
-            "email": "weak2@example.com",
-            "password": "abcdefgh",
-            "full_name": "Weak",
-            "phone_number": "5555550002",
-        },
+        data=signup_form(email="weak2@example.com", password="abcdefgh", full_name="Weak", phone_number="5555550002"),
+        files=SIGNUP_ID_FILES,
     )
-    assert response.status_code == 422
+    assert response.status_code == 400
 
 
 def test_signup_rejects_password_without_letter(client):
     response = client.post(
         "/auth/signup",
-        json={
-            "email": "weak3@example.com",
-            "password": "12345678",
-            "full_name": "Weak",
-            "phone_number": "5555550003",
-        },
+        data=signup_form(email="weak3@example.com", password="12345678", full_name="Weak", phone_number="5555550003"),
+        files=SIGNUP_ID_FILES,
     )
-    assert response.status_code == 422
+    assert response.status_code == 400
 
 
 def test_change_password_rejects_weak_new_password(client, auth_headers):

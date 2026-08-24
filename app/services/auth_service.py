@@ -17,7 +17,7 @@ from app.schemas.user import (
     UserCreate,
     UserUpdate,
 )
-from app.services import email_service, zipcode_service
+from app.services import email_service, identity_document_service, zipcode_service
 
 OTP_TTL_MINUTES = 5
 OTP_RESEND_COOLDOWN_SECONDS = 45
@@ -49,7 +49,15 @@ def _mask_phone(phone: str) -> str:
     return f"•••• {digits}"
 
 
-def create_user(db: Session, user_in: UserCreate) -> User:
+def create_user(
+    db: Session,
+    user_in: UserCreate,
+    document_type: str,
+    front_image_bytes: bytes,
+    front_image_content_type: str,
+    back_image_bytes: bytes | None = None,
+    back_image_content_type: str | None = None,
+) -> User:
     existing_email = db.query(User).filter(User.email == user_in.email).first()
     if existing_email is not None:
         raise BadRequestError("A user with this email already exists")
@@ -58,15 +66,36 @@ def create_user(db: Session, user_in: UserCreate) -> User:
     if existing_phone is not None:
         raise BadRequestError("A user with this phone number already exists")
 
+    zip_result = zipcode_service.lookup_zip_code(user_in.zip_code)
+    if zip_result["service_available"] and not zip_result["found"]:
+        raise BadRequestError("That doesn't look like a real US zip code")
+
     user = User(
         email=user_in.email,
         hashed_password=hash_password(user_in.password),
         full_name=user_in.full_name,
         phone_number=user_in.phone_number,
+        date_of_birth=user_in.date_of_birth,
+        government_id_last4=user_in.government_id_last4,
+        address=user_in.address,
+        employer_name=user_in.employer_name,
+        annual_income=user_in.annual_income,
         is_verified=False,
         password_changed_at=datetime.now(timezone.utc),
     )
     db.add(user)
+    db.flush()
+
+    identity_document_service.save(
+        db,
+        user,
+        document_type,
+        front_image_bytes,
+        front_image_content_type,
+        back_image_bytes,
+        back_image_content_type,
+    )
+
     db.commit()
     db.refresh(user)
     return user

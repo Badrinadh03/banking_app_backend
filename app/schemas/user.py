@@ -1,4 +1,5 @@
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
@@ -25,8 +26,19 @@ class UserCreate(BaseModel):
     password: str = Field(min_length=8)
     full_name: str
     phone_number: str = Field(min_length=7, max_length=20)
+    date_of_birth: date
+    government_id_last4: str
+    address: str
+    # Not persisted directly — used only to re-validate the ZIP embedded in
+    # `address` server-side, mirroring UserUpdate's zip check.
+    zip_code: str
+    employer_name: str | None = None
+    annual_income: Decimal | None = None
 
     _validate_password = field_validator("password")(_validate_password_strength)
+    _validate_government_id_last4 = field_validator("government_id_last4")(
+        _validate_government_id_last4
+    )
 
     @field_validator("phone_number")
     @classmethod

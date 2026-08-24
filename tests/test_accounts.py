@@ -1,18 +1,26 @@
 from app.models.user import User
+from tests.conftest import SIGNUP_ID_FILES, signup_form
 
 
 def _make_unverified_profile_user(client, db_session, email, password="password123"):
     client.post(
         "/auth/signup",
-        json={
-            "email": email,
-            "password": password,
-            "full_name": "Incomplete Profile",
-            "phone_number": f"555555{abs(hash(email)) % 10000:04d}",
-        },
+        data=signup_form(
+            email=email,
+            password=password,
+            full_name="Incomplete Profile",
+            phone_number=f"555555{abs(hash(email)) % 10000:04d}",
+        ),
+        files=SIGNUP_ID_FILES,
     )
     user = db_session.query(User).filter(User.email == email).first()
-    user.is_verified = True  # verified, but no address/government_id_last4
+    user.is_verified = True
+    # Signup itself now always collects address/government_id_last4, so this
+    # clears them back out to simulate the profile-incomplete state these
+    # tests are exercising (e.g. an account opened before that data was
+    # required, or cleared by a data-correction flow).
+    user.address = None
+    user.government_id_last4 = None
     db_session.commit()
     response = client.post("/auth/login", json={"identifier": email, "password": password})
     token = response.json()["access_token"]

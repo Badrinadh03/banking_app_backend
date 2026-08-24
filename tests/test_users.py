@@ -42,12 +42,15 @@ def test_update_profile_requires_auth(client):
 def test_update_profile_rejects_zip_that_does_not_exist(client, auth_headers, monkeypatch):
     from app.services import zipcode_service
 
+    # Create the fixture user (which itself validates a zip at signup)
+    # before stubbing lookups to always fail — the stub is only meant to
+    # affect the profile-update request this test actually exercises.
+    headers = auth_headers()
     monkeypatch.setattr(
         zipcode_service,
         "lookup_zip_code",
         lambda zip_code: {"service_available": True, "found": False},
     )
-    headers = auth_headers()
     response = client.patch(
         "/users/me",
         json={"address": "1 Nowhere Ave, 00000", "zip_code": "00000"},

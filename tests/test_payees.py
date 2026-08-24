@@ -164,13 +164,15 @@ def test_company_payee_accepts_zip_plus_4(client, auth_headers):
 def test_company_payee_rejects_zip_that_does_not_exist(client, auth_headers, monkeypatch):
     from app.services import zipcode_service
 
+    # Create the fixture user (which itself validates a zip at signup)
+    # before stubbing lookups to always fail — the stub is only meant to
+    # affect the payee-creation request this test actually exercises.
+    headers = auth_headers(email="payeezipnotfound@example.com")
     monkeypatch.setattr(
         zipcode_service,
         "lookup_zip_code",
         lambda zip_code: {"service_available": True, "found": False},
     )
-
-    headers = auth_headers(email="payeezipnotfound@example.com")
     response = client.post(
         "/payees",
         json={
